@@ -1,0 +1,24 @@
+node_modules
+.next
+out
+build
+dist
+coverage
+
+.env
+.env.local
+.env.*.local
+
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+/prisma/*.db
+/prisma/*.db-journal
+# Uploaded files (local disk storage)
+/public/uploads/

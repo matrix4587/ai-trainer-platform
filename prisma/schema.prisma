@@ -1,0 +1,1175 @@
+// ─────────────────────────────────────────────────────────────
+// AI Training & Evaluation Platform — Prisma Schema
+// Database: PostgreSQL (Neon)
+// ─────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────
+
+enum UserRole {
+  WORKER
+  CLIENT
+  REVIEWER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+  PENDING_VERIFICATION
+}
+
+enum EducationLevel {
+  HIGH_SCHOOL
+  BACHELORS
+  MASTERS
+  PHD
+  OTHER
+}
+
+enum FluencyLevel {
+  BASIC
+  CONVERSATIONAL
+  PROFESSIONAL
+  FLUENT
+  NATIVE
+}
+
+enum AssessmentDifficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum AssessmentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  MULTIPLE_SELECT
+  TRUE_FALSE
+  SHORT_ANSWER
+  LONG_ANSWER
+  CODE
+  IMAGE_EVALUATION
+  AUDIO_EVALUATION
+  VIDEO_EVALUATION
+  RESPONSE_COMPARISON
+  RANKING
+  PAIRWISE_PREFERENCE
+  DATA_ANALYSIS
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  GRADING
+  GRADED
+  EXPIRED
+  ABANDONED
+}
+
+enum CapabilityLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum WorkerLevel {
+  LEVEL_1_NEW
+  LEVEL_2_QUALIFIED
+  LEVEL_3_ADVANCED
+  LEVEL_4_EXPERT
+  LEVEL_5_SPECIALIST
+}
+
+enum ProjectStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum TaskStatus {
+  DRAFT
+  AVAILABLE
+  ASSIGNED
+  IN_PROGRESS
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum AssignmentStatus {
+  OFFERED
+  ACCEPTED
+  STARTED
+  PAUSED
+  SUBMITTED
+  COMPLETED
+  ABANDONED
+  EXPIRED
+}
+
+enum ReviewStatus {
+  PENDING
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+  NEEDS_REVISION
+}
+
+enum ReviewType {
+  ADMIN
+  PEER
+  CLIENT
+  AUTO
+}
+
+enum TransactionType {
+  TASK_EARNING
+  TASK_REVERSAL
+  BONUS
+  ADJUSTMENT
+  WITHDRAWAL
+  WITHDRAWAL_REFUND
+  REVIEW_EARNING
+  REFERRAL_BONUS
+}
+
+enum TransactionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVERSED
+}
+
+enum WithdrawalStatus {
+  REQUESTED
+  PENDING_REVIEW
+  APPROVED
+  PROCESSING
+  PAID
+  FAILED
+  REJECTED
+}
+
+enum PaymentProvider {
+  STRIPE
+  WISE
+  PAYPAL
+  PAYONEER
+  MPESA
+  BANK_TRANSFER
+  MANUAL
+}
+
+enum NotificationType {
+  ASSESSMENT_AVAILABLE
+  ASSESSMENT_PASSED
+  ASSESSMENT_FAILED
+  TASK_AVAILABLE
+  TASK_DEADLINE
+  TASK_APPROVED
+  TASK_REJECTED
+  QUALITY_WARNING
+  LEVEL_PROMOTION
+  WITHDRAWAL_SUBMITTED
+  WITHDRAWAL_APPROVED
+  PAYMENT_SENT
+  SYSTEM
+}
+
+enum FraudFlagType {
+  MULTIPLE_ACCOUNTS
+  SUSPICIOUS_LOGIN
+  IMPOSSIBLE_TIMING
+  ANSWER_SIMILARITY
+  GOLD_TASK_FAILURE
+  AUTOMATED_SUBMISSION
+  ACCOUNT_SHARING
+  SUSPICIOUS_WITHDRAWAL
+  IP_ANOMALY
+  DEVICE_ANOMALY
+}
+
+enum FraudFlagStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED_CLEAN
+  RESOLVED_ACTION_TAKEN
+  DISMISSED
+}
+
+enum AuditAction {
+  USER_CREATED
+  USER_UPDATED
+  USER_SUSPENDED
+  USER_REACTIVATED
+  ROLE_CHANGED
+  ASSESSMENT_CREATED
+  ASSESSMENT_UPDATED
+  ASSESSMENT_DELETED
+  ASSESSMENT_PUBLISHED
+  TASK_CREATED
+  TASK_ASSIGNED
+  TASK_DELETED
+  TASK_RATE_CHANGED
+  SUBMISSION_APPROVED
+  SUBMISSION_REJECTED
+  CAPABILITY_GRANTED
+  CAPABILITY_REVOKED
+  RATE_CHANGED
+  WITHDRAWAL_APPROVED
+  WITHDRAWAL_REJECTED
+  WITHDRAWAL_PAID
+  PAYMENT_METHOD_ADDED
+  PAYMENT_METHOD_REMOVED
+  FRAUD_FLAG_CREATED
+  FRAUD_FLAG_RESOLVED
+  CONFIG_CHANGED
+}
+
+// ─────────────────────────────────────────────────────────────
+// IDENTITY & PROFILE
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  name          String?
+  image         String?
+
+  role   UserRole      @default(WORKER)
+  status AccountStatus @default(PENDING_VERIFICATION)
+
+  twoFactorEnabled Boolean @default(false)
+  twoFactorSecret  String?
+
+  lastLoginAt  DateTime?
+  lastLoginIp  String?
+  failedLogins Int       @default(0)
+  lockedUntil  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  profile       Profile?
+  accounts      Account[]
+  sessions      Session[]
+  education     Education[]
+  experience    Experience[]
+  userSkills    UserSkill[]
+  userLanguages UserLanguage[]
+  resumes       Resume[]
+
+  assessmentAttempts AssessmentAttempt[]
+  userCapabilities   UserCapability[]
+  capabilityHistory  CapabilityHistory[]
+
+  qualityScores      QualityScore[]
+  workerLevelHistory WorkerLevelHistory[]
+
+  taskAssignments     TaskAssignment[]
+  taskSubmissions     TaskSubmission[]
+  taskReviewsGiven    TaskReview[]         @relation("Reviewer")
+  goldTaskAssignments GoldTaskAssignment[]
+
+  wallet         Wallet?
+  transactions   Transaction[]
+  withdrawals    Withdrawal[]
+  paymentMethods PaymentMethod[]
+
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  fraudFlags    FraudFlag[]
+
+  clientProfile      Client?
+  createdProjects    Project[]
+  createdAssessments Assessment[] @relation("AssessmentCreator")
+
+  @@index([role, status])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(uuid()) @db.Uuid
+  userId            String  @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionToken String   @unique
+  userId       String   @db.Uuid
+  expires      DateTime
+  ipAddress    String?
+  userAgent    String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Profile {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
+
+  fullName         String?
+  country          String?
+  phoneNumber      String?
+  dateOfBirth      DateTime?
+  highestEducation EducationLevel?
+  fieldOfStudy     String?
+  institution      String?
+  yearsExperience  Int?
+  linkedinUrl      String?
+  bio              String?         @db.Text
+
+  areasOfExpertise   String[]
+  computerSkills     String[]
+  aiMlExperience     String?
+  previousAnnotation String?
+
+  profileCompletion     Int       @default(0)
+  isPublic              Boolean   @default(false)
+  onboardingCompletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model Education {
+  id          String         @id @default(uuid()) @db.Uuid
+  userId      String         @db.Uuid
+  institution String
+  degree      String
+  field       String
+  startYear   Int
+  endYear     Int?
+  level       EducationLevel
+  createdAt   DateTime       @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("education")
+}
+
+model Experience {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  company     String
+  position    String
+  startDate   DateTime
+  endDate     DateTime?
+  description String?   @db.Text
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("experience")
+}
+
+model Skill {
+  id       String  @id @default(uuid()) @db.Uuid
+  name     String  @unique
+  category String?
+
+  createdAt DateTime @default(now())
+
+  userSkills UserSkill[]
+
+  @@map("skills")
+}
+
+model UserSkill {
+  id          String @id @default(uuid()) @db.Uuid
+  userId      String @db.Uuid
+  skillId     String @db.Uuid
+  proficiency Int    @default(3)
+  yearsUsed   Int?
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skillId])
+  @@index([userId])
+  @@map("user_skills")
+}
+
+model Language {
+  id   String @id @default(uuid()) @db.Uuid
+  code String @unique
+  name String @unique
+
+  userLanguages UserLanguage[]
+
+  @@map("languages")
+}
+
+model UserLanguage {
+  id         String       @id @default(uuid()) @db.Uuid
+  userId     String       @db.Uuid
+  languageId String       @db.Uuid
+  fluency    FluencyLevel
+  isNative   Boolean      @default(false)
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, languageId])
+  @@index([userId])
+  @@map("user_languages")
+}
+
+model Resume {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  fileName  String
+  fileKey   String
+  fileSize  Int
+  mimeType  String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("resumes")
+}
+
+// ─────────────────────────────────────────────────────────────
+// ASSESSMENTS
+// ─────────────────────────────────────────────────────────────
+
+model Assessment {
+  id          String               @id @default(uuid()) @db.Uuid
+  name        String
+  slug        String               @unique
+  description String?              @db.Text
+  category    String
+  difficulty  AssessmentDifficulty @default(INTERMEDIATE)
+  status      AssessmentStatus     @default(DRAFT)
+
+  timeLimitMinutes Int @default(30)
+  passingScore     Int @default(80)
+  maxAttempts      Int @default(1)
+
+  randomizeQuestions Boolean @default(true)
+  randomizeOptions   Boolean @default(true)
+
+  antiCheatEnabled Boolean @default(true)
+
+  createdById String? @db.Uuid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdBy User?               @relation("AssessmentCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  sections  AssessmentSection[]
+  questions Question[]
+  attempts  AssessmentAttempt[]
+  rules     QualificationRule[]
+
+  @@index([category, status])
+  @@index([status, difficulty])
+  @@map("assessments")
+}
+
+model AssessmentSection {
+  id           String  @id @default(uuid()) @db.Uuid
+  assessmentId String  @db.Uuid
+  title        String
+  description  String? @db.Text
+  order        Int     @default(0)
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  questions  Question[]
+
+  @@index([assessmentId])
+  @@map("assessment_sections")
+}
+
+model Question {
+  id           String       @id @default(uuid()) @db.Uuid
+  assessmentId String       @db.Uuid
+  sectionId    String?      @db.Uuid
+  type         QuestionType
+
+  prompt      String  @db.Text
+  explanation String? @db.Text
+  points      Int     @default(1)
+  order       Int     @default(0)
+
+  metadata      Json?
+  correctAnswer Json?
+  rubric        Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assessment Assessment         @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  section    AssessmentSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  options    QuestionOption[]
+  answers    AssessmentAnswer[]
+
+  @@index([assessmentId, order])
+  @@map("questions")
+}
+
+model QuestionOption {
+  id         String  @id @default(uuid()) @db.Uuid
+  questionId String  @db.Uuid
+  label      String  @db.Text
+  isCorrect  Boolean @default(false)
+  order      Int     @default(0)
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+  @@map("question_options")
+}
+
+model AssessmentAttempt {
+  id           String        @id @default(uuid()) @db.Uuid
+  assessmentId String        @db.Uuid
+  userId       String        @db.Uuid
+  status       AttemptStatus @default(IN_PROGRESS)
+
+  startedAt   DateTime  @default(now())
+  submittedAt DateTime?
+  gradedAt    DateTime?
+  expiresAt   DateTime?
+
+  score             Float?
+  accuracyScore     Float?
+  reasoningScore    Float?
+  consistencyScore  Float?
+  completionSeconds Int?
+  confidenceScore   Float?
+
+  categoryPerformance Json?
+  capabilityResult    Json?
+
+  ipAddress String?
+  userAgent String? @db.Text
+
+  assessment Assessment         @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers    AssessmentAnswer[]
+
+  @@index([userId, assessmentId])
+  @@index([status])
+  @@map("assessment_attempts")
+}
+
+model AssessmentAnswer {
+  id         String @id @default(uuid()) @db.Uuid
+  attemptId  String @db.Uuid
+  questionId String @db.Uuid
+
+  response   Json
+  isCorrect  Boolean?
+  points     Float?
+  feedback   String?  @db.Text
+  gradedById String?  @db.Uuid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attempt  AssessmentAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question Question          @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+  @@index([attemptId])
+  @@map("assessment_answers")
+}
+
+// ─────────────────────────────────────────────────────────────
+// CAPABILITIES & QUALIFICATIONS
+// ─────────────────────────────────────────────────────────────
+
+model Capability {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique
+  slug        String  @unique
+  description String? @db.Text
+  category    String?
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  userCapabilities  UserCapability[]
+  taskRequirements  TaskCapabilityRequirement[]
+  QualificationRule QualificationRule[]
+
+  @@map("capabilities")
+}
+
+model UserCapability {
+  id           String          @id @default(uuid()) @db.Uuid
+  userId       String          @db.Uuid
+  capabilityId String          @db.Uuid
+  level        CapabilityLevel
+  score        Float
+  grantedAt    DateTime        @default(now())
+  expiresAt    DateTime?
+  sourceRuleId String?         @db.Uuid
+
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  capability Capability         @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+  sourceRule QualificationRule? @relation(fields: [sourceRuleId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, capabilityId])
+  @@index([userId])
+  @@map("user_capabilities")
+}
+
+model CapabilityHistory {
+  id            String           @id @default(uuid()) @db.Uuid
+  userId        String           @db.Uuid
+  capabilityId  String           @db.Uuid
+  previousLevel CapabilityLevel?
+  newLevel      CapabilityLevel
+  reason        String?
+  createdAt     DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("capability_history")
+}
+
+model QualificationRule {
+  id           String  @id @default(uuid()) @db.Uuid
+  name         String
+  description  String? @db.Text
+  capabilityId String  @db.Uuid
+  assessmentId String? @db.Uuid
+
+  conditions  Json
+  targetLevel CapabilityLevel
+  isActive    Boolean         @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  capability       Capability       @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+  assessment       Assessment?      @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
+  userCapabilities UserCapability[]
+
+  @@index([capabilityId])
+  @@map("qualification_rules")
+}
+
+// ─────────────────────────────────────────────────────────────
+// CLIENTS & PROJECTS
+// ─────────────────────────────────────────────────────────────
+
+model Client {
+  id       String  @id @default(uuid()) @db.Uuid
+  userId   String  @unique @db.Uuid
+  company  String
+  website  String?
+  industry String?
+  notes    String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projects Project[]
+
+  @@map("clients")
+}
+
+model Project {
+  id           String  @id @default(uuid()) @db.Uuid
+  clientId     String? @db.Uuid
+  createdById  String? @db.Uuid
+  name         String
+  slug         String  @unique
+  description  String? @db.Text
+  instructions String? @db.Text
+
+  category   String
+  difficulty AssessmentDifficulty @default(INTERMEDIATE)
+  status     ProjectStatus        @default(DRAFT)
+
+  language         String @default("en")
+  ratePerHourCents Int
+  currency         String @default("USD")
+
+  taskVolume       Int?
+  deadline         DateTime?
+  qualityThreshold Float     @default(85)
+
+  requiredCapabilities Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client    Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  createdBy User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  tasks     Task[]
+
+  @@index([status])
+  @@index([clientId])
+  @@map("projects")
+}
+
+// ─────────────────────────────────────────────────────────────
+// TASKS
+// ─────────────────────────────────────────────────────────────
+
+model Task {
+  id        String @id @default(uuid()) @db.Uuid
+  projectId String @db.Uuid
+
+  externalId   String?
+  title        String
+  instructions String? @db.Text
+
+  content        Json
+  responseSchema Json?
+
+  difficulty AssessmentDifficulty
+  status     TaskStatus           @default(DRAFT)
+  priority   Int                  @default(0)
+
+  estimatedMinutes Int?
+  deadline         DateTime?
+  maxAssignments   Int       @default(1)
+
+  ratePerHourCents Int?
+
+  isGoldTask      Boolean @default(false)
+  goldAnswer      Json?
+  goldScoringRule Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project         Project                     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignments     TaskAssignment[]
+  submissions     TaskSubmission[]
+  reviews         TaskReview[]
+  goldAssignments GoldTaskAssignment[]
+  requirements    TaskCapabilityRequirement[]
+
+  @@index([projectId, status])
+  @@index([status, difficulty])
+  @@map("tasks")
+}
+
+model TaskCapabilityRequirement {
+  id           String          @id @default(uuid()) @db.Uuid
+  taskId       String          @db.Uuid
+  capabilityId String          @db.Uuid
+  minLevel     CapabilityLevel
+  minScore     Float?
+
+  task       Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  capability Capability @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, capabilityId])
+  @@map("task_capability_requirements")
+}
+
+model TaskAssignment {
+  id     String           @id @default(uuid()) @db.Uuid
+  taskId String           @db.Uuid
+  userId String           @db.Uuid
+  status AssignmentStatus @default(OFFERED)
+
+  assignedAt  DateTime  @default(now())
+  acceptedAt  DateTime?
+  startedAt   DateTime?
+  pausedAt    DateTime?
+  submittedAt DateTime?
+  completedAt DateTime?
+
+  activeSeconds Int @default(0)
+  idleSeconds   Int @default(0)
+
+  assignedById     String? @db.Uuid
+  assignmentReason String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([userId, status])
+  @@map("task_assignments")
+}
+
+model TaskSubmission {
+  id           String  @id @default(uuid()) @db.Uuid
+  taskId       String  @db.Uuid
+  userId       String  @db.Uuid
+  assignmentId String? @db.Uuid
+
+  response   Json
+  confidence Float?
+  comment    String? @db.Text
+
+  submittedAt DateTime @default(now())
+
+  isCorrect    Boolean?
+  qualityScore Float?
+
+  task    Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviews TaskReview[]
+
+  @@index([userId, submittedAt])
+  @@index([taskId])
+  @@map("task_submissions")
+}
+
+model TaskReview {
+  id           String       @id @default(uuid()) @db.Uuid
+  submissionId String       @db.Uuid
+  taskId       String       @db.Uuid
+  reviewerId   String       @db.Uuid
+  type         ReviewType   @default(ADMIN)
+  status       ReviewStatus @default(PENDING)
+
+  score       Float?
+  accuracy    Float?
+  reasoning   Float?
+  consistency Float?
+  comment     String? @db.Text
+  corrections Json?
+
+  createdAt  DateTime  @default(now())
+  reviewedAt DateTime?
+
+  submission TaskSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  task       Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  reviewer   User           @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId])
+  @@index([reviewerId, status])
+  @@map("task_reviews")
+}
+
+model GoldTaskAssignment {
+  id     String @id @default(uuid()) @db.Uuid
+  taskId String @db.Uuid
+  userId String @db.Uuid
+
+  assignedAt  DateTime  @default(now())
+  submittedAt DateTime?
+  revealedAt  DateTime?
+
+  isCorrect Boolean?
+  score     Float?
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([userId])
+  @@map("gold_task_assignments")
+}
+
+// ─────────────────────────────────────────────────────────────
+// QUALITY & LEVELS
+// ─────────────────────────────────────────────────────────────
+
+model QualityScore {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+
+  overallScore     Float
+  accuracyScore    Float?
+  agreementScore   Float?
+  consistencyScore Float?
+  reviewScore      Float?
+
+  tasksCompleted Int @default(0)
+  tasksRejected  Int @default(0)
+  tasksCorrected Int @default(0)
+
+  goldTaskAccuracy    Float?
+  clientFeedbackScore Float?
+
+  calculatedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, calculatedAt])
+  @@map("quality_scores")
+}
+
+model WorkerLevelHistory {
+  id          String       @id @default(uuid()) @db.Uuid
+  userId      String       @db.Uuid
+  fromLevel   WorkerLevel?
+  toLevel     WorkerLevel
+  reason      String?
+  changedById String?      @db.Uuid
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("worker_level_history")
+}
+
+// ─────────────────────────────────────────────────────────────
+// WALLET, EARNINGS, PAYMENTS
+// ─────────────────────────────────────────────────────────────
+
+model Wallet {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
+
+  balanceCents          Int @default(0)
+  pendingCents          Int @default(0)
+  lifetimeEarningsCents Int @default(0)
+  totalWithdrawnCents   Int @default(0)
+
+  currency String @default("USD")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("wallets")
+}
+
+model Transaction {
+  id     String            @id @default(uuid()) @db.Uuid
+  userId String            @db.Uuid
+  type   TransactionType
+  status TransactionStatus @default(APPROVED)
+
+  amountCents Int
+  currency    String @default("USD")
+
+  description String? @db.Text
+  reference   String? @unique
+
+  taskId       String? @db.Uuid
+  submissionId String? @db.Uuid
+  withdrawalId String? @db.Uuid
+  reviewId     String? @db.Uuid
+
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([type])
+  @@map("transactions")
+}
+
+model PaymentMethod {
+  id       String          @id @default(uuid()) @db.Uuid
+  userId   String          @db.Uuid
+  provider PaymentProvider
+
+  isDefault Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  displayName String?
+  accountRef  String?
+  metadata    Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  withdrawals Withdrawal[]
+
+  @@index([userId])
+  @@map("payment_methods")
+}
+
+model Withdrawal {
+  id              String           @id @default(uuid()) @db.Uuid
+  userId          String           @db.Uuid
+  paymentMethodId String?          @db.Uuid
+  provider        PaymentProvider
+  status          WithdrawalStatus @default(REQUESTED)
+
+  amountCents Int
+  feeCents    Int    @default(0)
+  netCents    Int
+  currency    String @default("USD")
+
+  requestedAt DateTime  @default(now())
+  reviewedAt  DateTime?
+  processedAt DateTime?
+  paidAt      DateTime?
+  failedAt    DateTime?
+
+  reviewNotes   String? @db.Text
+  failureReason String? @db.Text
+
+  providerReference String?
+  providerPayload   Json?
+
+  reviewedById String? @db.Uuid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentMethod PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([status, requestedAt])
+  @@map("withdrawals")
+}
+
+// ─────────────────────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────────────────────
+
+model Notification {
+  id       String           @id @default(uuid()) @db.Uuid
+  userId   String           @db.Uuid
+  type     NotificationType
+  title    String
+  body     String?          @db.Text
+  link     String?
+  metadata Json?
+
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────────────────────────
+// AUDIT & FRAUD
+// ─────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String      @id @default(uuid()) @db.Uuid
+  userId     String?     @db.Uuid
+  action     AuditAction
+  resource   String?
+  resourceId String?     @db.Uuid
+
+  previousValue Json?
+  newValue      Json?
+
+  ipAddress String?
+  userAgent String? @db.Text
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@index([resource, resourceId])
+  @@map("audit_logs")
+}
+
+model FraudFlag {
+  id       String          @id @default(uuid()) @db.Uuid
+  userId   String          @db.Uuid
+  type     FraudFlagType
+  status   FraudFlagStatus @default(OPEN)
+  severity Int             @default(1)
+
+  riskScore Float?
+  details   Json?
+
+  resolvedById    String?   @db.Uuid
+  resolvedAt      DateTime?
+  resolutionNotes String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([status, severity])
+  @@map("fraud_flags")
+}
+
+// ─────────────────────────────────────────────────────────────
+// PLATFORM CONFIGURATION
+// ─────────────────────────────────────────────────────────────
+
+model PlatformConfig {
+  key         String   @id
+  value       Json
+  updatedAt   DateTime @updatedAt
+  updatedById String?  @db.Uuid
+
+  @@map("platform_config")
+}
