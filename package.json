@@ -2,6 +2,7 @@
   "name": "ai-trainer-platform",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@9.15.0",
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=\"--max-old-space-size=4096 --max-semi-space-size=128\" next dev --turbo",
     "build": "next build",
