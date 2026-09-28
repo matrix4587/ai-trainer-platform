@@ -22,3 +22,4 @@ pnpm-debug.log*
 /prisma/*.db-journal
 # Uploaded files (local disk storage)
 /public/uploads/
+tsconfig.tsbuildinfo

@@ -140,7 +140,7 @@ export default async function DashboardPage() {
               </div>
             ) : (
               <ul className="space-y-2">
-                {capabilities.map((uc) => (
+                {capabilities.map((uc: any) => (
                   <li
                     key={uc.id}
                     className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"

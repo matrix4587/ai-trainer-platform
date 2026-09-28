@@ -27,7 +27,7 @@ export default async function EducationPage() {
       </div>
 
       <EducationForm
-        initialEntries={education.map((e) => ({
+        initialEntries={education.map((e: any) => ({
           id: e.id,
           institution: e.institution,
           degree: e.degree,
