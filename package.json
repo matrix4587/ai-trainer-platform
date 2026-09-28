@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "dev": "cross-env NODE_OPTIONS=\"--max-old-space-size=4096 --max-semi-space-size=128\" next dev --turbo",
+    "dev": "cross-env NODE_OPTIONS=\"--max-old-space-size=4096 --max-semi-space-size=128\" next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
