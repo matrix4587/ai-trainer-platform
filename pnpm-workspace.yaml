@@ -10,3 +10,8 @@ allowBuilds:
 
 overrides:
   "@auth/core": "0.37.2"
+packages: []
+
+ignoredBuiltDependencies:
+  - sharp
+  - unrs-resolver
