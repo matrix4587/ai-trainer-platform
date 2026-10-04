@@ -5,16 +5,6 @@ import type { CapabilityLevel } from "@prisma/client";
 // Types
 // ─────────────────────────────────────────────────────────────
 
-/**
- * Shape of the `conditions` JSON stored on QualificationRule.
- * All fields are optional; a rule matches only if EVERY present
- * field matches. Missing fields mean "no constraint".
- *
- * Examples:
- *   { minScore: 80 }
- *   { minScore: 70, maxScore: 89 }
- *   { category: "reasoning", minScore: 75 }
- */
 export type RuleConditions = {
   minScore?: number;
   maxScore?: number;
@@ -31,7 +21,7 @@ export type AttemptSummary = {
   score: number | null;
   accuracyScore: number | null;
   reasoningScore: number | null;
-  categoryPerformance: unknown; // JSON — shape is assessment-defined
+  categoryPerformance: unknown;
 };
 
 export type GrantResult = {
@@ -46,8 +36,21 @@ export type EvaluateRulesResult =
   | { ok: true; grants: GrantResult[] }
   | { ok: false; reason: "ATTEMPT_NOT_FOUND" | "ATTEMPT_NOT_GRADED" };
 
+export type UserCapabilityView = {
+  id: string;
+  capabilityId: string;
+  name: string;
+  slug: string;
+  category: string | null;
+  description: string | null;
+  level: CapabilityLevel;
+  score: number;
+  grantedAt: string;
+  expiresAt: string | null;
+};
+
 // ─────────────────────────────────────────────────────────────
-// Level ordering — used to decide if a rule "upgrades" a user
+// Level ordering
 // ─────────────────────────────────────────────────────────────
 
 const LEVEL_ORDER: Record<CapabilityLevel, number> = {
@@ -105,10 +108,6 @@ export function conditionsMatch(
 
 // ─────────────────────────────────────────────────────────────
 // evaluateQualificationRules
-//
-// Given a graded attempt, load every active rule for that
-// assessment, check conditions, and grant/upgrade capabilities.
-// Writes a CapabilityHistory row for every real change.
 // ─────────────────────────────────────────────────────────────
 
 export async function evaluateQualificationRules(
@@ -247,4 +246,35 @@ export async function evaluateQualificationRules(
   }
 
   return { ok: true, grants };
+}
+
+// ─────────────────────────────────────────────────────────────
+// listUserCapabilities
+// ─────────────────────────────────────────────────────────────
+
+export async function listUserCapabilities(
+  userId: string,
+): Promise<UserCapabilityView[]> {
+  const rows = await prisma.userCapability.findMany({
+    where: { userId },
+    orderBy: { grantedAt: "desc" },
+    include: {
+      capability: {
+        select: { name: true, slug: true, category: true, description: true },
+      },
+    },
+  });
+
+  return rows.map((r) => ({
+    id: r.id,
+    capabilityId: r.capabilityId,
+    name: r.capability.name,
+    slug: r.capability.slug,
+    category: r.capability.category,
+    description: r.capability.description,
+    level: r.level,
+    score: r.score,
+    grantedAt: r.grantedAt.toISOString(),
+    expiresAt: r.expiresAt ? r.expiresAt.toISOString() : null,
+  }));
 }

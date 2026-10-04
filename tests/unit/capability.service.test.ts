@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import {
   conditionsMatch,
   evaluateQualificationRules,
+  listUserCapabilities,
   type AttemptSummary,
 } from "@/server/services/capability.service";
 
@@ -56,7 +57,12 @@ describe("conditionsMatch", () => {
   });
 
   it("treats null scores as 0", () => {
-    const noScore: AttemptSummary = { ...base, score: null, accuracyScore: null, reasoningScore: null };
+    const noScore: AttemptSummary = {
+      ...base,
+      score: null,
+      accuracyScore: null,
+      reasoningScore: null,
+    };
     expect(conditionsMatch({ minScore: 1 }, noScore)).toBe(false);
     expect(conditionsMatch({ minScore: 0 }, noScore)).toBe(true);
   });
@@ -242,5 +248,68 @@ describe("evaluateQualificationRules", () => {
     }
     expect(prisma.userCapability.update).not.toHaveBeenCalled();
     expect(prisma.capabilityHistory.create).not.toHaveBeenCalled();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// listUserCapabilities — mocked Prisma
+// ─────────────────────────────────────────────────────────────
+
+describe("listUserCapabilities", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns an empty array when the user holds no capabilities", async () => {
+    vi.mocked(prisma.userCapability.findMany).mockResolvedValueOnce([] as never);
+
+    const result = await listUserCapabilities("u1");
+
+    expect(result).toEqual([]);
+  });
+
+  it("maps rows into the view shape including nested capability fields", async () => {
+    vi.mocked(prisma.userCapability.findMany).mockResolvedValueOnce([
+      {
+        id: "uc1",
+        capabilityId: "c1",
+        level: "ADVANCED",
+        score: 92,
+        grantedAt: new Date("2026-10-01T09:00:00Z"),
+        expiresAt: null,
+        capability: {
+          name: "Sentiment Analysis",
+          slug: "sentiment-analysis",
+          category: "NLP",
+          description: "Classify text sentiment",
+        },
+      },
+    ] as never);
+
+    const result = await listUserCapabilities("u1");
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      id: "uc1",
+      capabilityId: "c1",
+      name: "Sentiment Analysis",
+      slug: "sentiment-analysis",
+      category: "NLP",
+      description: "Classify text sentiment",
+      level: "ADVANCED",
+      score: 92,
+      grantedAt: "2026-10-01T09:00:00.000Z",
+      expiresAt: null,
+    });
+  });
+
+  it("passes the userId and orders by grantedAt desc", async () => {
+    vi.mocked(prisma.userCapability.findMany).mockResolvedValueOnce([] as never);
+
+    await listUserCapabilities("u1");
+
+    const callArg = vi.mocked(prisma.userCapability.findMany).mock.calls[0][0];
+    expect(callArg?.where).toEqual({ userId: "u1" });
+    expect(callArg?.orderBy).toEqual({ grantedAt: "desc" });
   });
 });
