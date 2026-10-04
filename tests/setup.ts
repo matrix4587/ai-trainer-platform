@@ -97,6 +97,21 @@ vi.mock("@/lib/prisma", () => {
     findFirst: vi.fn(),
   };
 
+  const wallet = {
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  };
+
+  const transaction = {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    count: vi.fn(),
+  };
+
   return {
     prisma: {
       user,
@@ -113,6 +128,8 @@ vi.mock("@/lib/prisma", () => {
       taskAssignment,
       taskSubmission,
       qualityScore,
+      wallet,
+      transaction,
     },
   };
 });
