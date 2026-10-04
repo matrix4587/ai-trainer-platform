@@ -85,6 +85,18 @@ vi.mock("@/lib/prisma", () => {
     count: vi.fn(),
   };
 
+  const taskSubmission = {
+    create: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+  };
+
+  const qualityScore = {
+    create: vi.fn(),
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+  };
+
   return {
     prisma: {
       user,
@@ -99,6 +111,8 @@ vi.mock("@/lib/prisma", () => {
       task,
       project,
       taskAssignment,
+      taskSubmission,
+      qualityScore,
     },
   };
 });
