@@ -15,13 +15,30 @@ vi.mock("@/lib/prisma", () => {
   };
 
   const assessmentAttempt = {
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
     count: vi.fn(),
+  };
+
+  const assessmentAnswer = {
+    findMany: vi.fn(),
+    upsert: vi.fn(),
+    update: vi.fn(),
+  };
+
+  const question = {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
   };
 
   return {
     prisma: {
       assessment,
       assessmentAttempt,
+      assessmentAnswer,
+      question,
     },
   };
 });
