@@ -77,6 +77,14 @@ vi.mock("@/lib/prisma", () => {
     findFirst: vi.fn(),
   };
 
+  const taskAssignment = {
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    count: vi.fn(),
+  };
+
   return {
     prisma: {
       user,
@@ -90,6 +98,7 @@ vi.mock("@/lib/prisma", () => {
       capability,
       task,
       project,
+      taskAssignment,
     },
   };
 });
