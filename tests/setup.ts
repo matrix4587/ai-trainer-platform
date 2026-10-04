@@ -1,12 +1,5 @@
 import { vi, beforeEach } from "vitest";
 
-// ─────────────────────────────────────────────────────────────
-// Global test setup.
-// Any module that imports @/lib/prisma gets a mocked client,
-// so tests never touch the real Neon database.
-// Expand the mocked surface as more services are added.
-// ─────────────────────────────────────────────────────────────
-
 vi.mock("@/lib/prisma", () => {
   const user = {
     findFirst: vi.fn(),
@@ -89,6 +82,7 @@ vi.mock("@/lib/prisma", () => {
     create: vi.fn(),
     findFirst: vi.fn(),
     findMany: vi.fn(),
+    update: vi.fn(),
   };
 
   const qualityScore = {
@@ -112,6 +106,37 @@ vi.mock("@/lib/prisma", () => {
     count: vi.fn(),
   };
 
+  const notification = {
+    create: vi.fn(),
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    updateMany: vi.fn(),
+    count: vi.fn(),
+  };
+
+  const taskReview = {
+    create: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    update: vi.fn(),
+    count: vi.fn(),
+  };
+
+  // $transaction passes the same mock client to the callback.
+  // The callback can call any of the mocked methods, and they'll
+  // work the same way as calling prisma directly.
+  const $transaction = vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
+    const tx = {
+      wallet,
+      transaction,
+      notification,
+      taskReview,
+      taskAssignment,
+      taskSubmission,
+    };
+    return fn(tx);
+  });
+
   return {
     prisma: {
       user,
@@ -130,6 +155,9 @@ vi.mock("@/lib/prisma", () => {
       qualityScore,
       wallet,
       transaction,
+      notification,
+      taskReview,
+      $transaction,
     },
   };
 });
