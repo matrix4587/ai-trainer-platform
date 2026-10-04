@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { AttemptStatus, QuestionType } from "@prisma/client";
+import { evaluateQualificationRules } from "@/server/services/capability.service";
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -300,6 +301,8 @@ export async function saveAnswer(
 
 // ─────────────────────────────────────────────────────────────
 // submitAttempt
+// Grades auto-gradable answers, computes score, marks graded,
+// then fires the capability engine.
 // ─────────────────────────────────────────────────────────────
 
 export async function submitAttempt(
@@ -380,6 +383,14 @@ export async function submitAttempt(
       accuracyScore: score,
     },
   });
+
+  // Fire the capability engine. Failures here must not fail the
+  // submission — the grade is already saved. Log and continue.
+  try {
+    await evaluateQualificationRules(attemptId);
+  } catch (err) {
+    console.error(`[submitAttempt] capability engine failed for ${attemptId}:`, err);
+  }
 
   const refreshed = await loadPublicAttempt(attemptId);
   if (!refreshed) return { ok: false, reason: "ATTEMPT_NOT_FOUND" };

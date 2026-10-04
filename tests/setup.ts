@@ -33,12 +33,38 @@ vi.mock("@/lib/prisma", () => {
     findFirst: vi.fn(),
   };
 
+  const qualificationRule = {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+  };
+
+  const userCapability = {
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  };
+
+  const capabilityHistory = {
+    create: vi.fn(),
+    findMany: vi.fn(),
+  };
+
+  const capability = {
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+  };
+
   return {
     prisma: {
       assessment,
       assessmentAttempt,
       assessmentAnswer,
       question,
+      qualificationRule,
+      userCapability,
+      capabilityHistory,
+      capability,
     },
   };
 });
