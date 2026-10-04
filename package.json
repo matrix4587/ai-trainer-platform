@@ -15,7 +15,8 @@
     "postinstall": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
     "seed:skills": "tsx prisma/seed-skills.ts",
-    "seed:assessments": "tsx prisma/seed-assessments.ts"
+    "seed:assessments": "tsx prisma/seed-assessments.ts",
+    "seed:tasks": "tsx prisma/seed-tasks.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.4",

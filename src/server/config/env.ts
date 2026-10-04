@@ -10,7 +10,7 @@ const serverSchema = z.object({
     .enum(["development", "test", "production"])
     .default("development"),
   APP_URL: z.string().url().default("http://localhost:3000"),
-  PLATFORM_NAME: z.string().default("EvalForge"),
+  PLATFORM_NAME: z.string().default("Evalia"),
 
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
 
@@ -53,10 +53,10 @@ function loadEnv(): ServerEnv {
   if (!parsed.success) {
     const formatted = parsed.error.flatten().fieldErrors;
     console.error(
-      "❌ Invalid environment variables:\n",
-      JSON.stringify(formatted, null, 2)
+      "Invalid or missing environment variables:",
+      JSON.stringify(formatted, null, 2),
     );
-    throw new Error("Invalid environment variables — check server logs.");
+    throw new Error("Invalid environment configuration");
   }
   return parsed.data;
 }

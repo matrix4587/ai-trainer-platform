@@ -15,7 +15,6 @@ import {
   Globe2,
   LineChart,
   ShieldCheck,
-  Sparkles,
   Wallet,
 } from "lucide-react";
 
@@ -121,14 +120,16 @@ const trustPoints = [
 export default function LandingPage() {
   return (
     <main className="flex min-h-screen flex-col">
-      {/* ─── Navbar ─────────────────────────────────────────── */}
+      {/* Navbar */}
       <header className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur">
         <div className="container flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center gap-2 font-semibold">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <Sparkles className="h-4 w-4" />
-            </div>
-            <span>EvalForge</span>
+            <img
+              src="/logo.png"
+              alt="Evalia"
+              className="h-10 w-10 rounded-md object-contain"
+            />
+            <span>Evalia</span>
           </Link>
 
           <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
@@ -163,7 +164,7 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* ─── Hero ───────────────────────────────────────────── */}
+      {/* Hero */}
       <section className="border-b">
         <div className="container grid gap-12 py-20 md:grid-cols-2 md:items-center md:py-28">
           <div>
@@ -210,9 +211,7 @@ export default function LandingPage() {
             <div className="absolute -inset-4 -z-10 rounded-2xl bg-gradient-to-br from-primary/20 via-primary/5 to-transparent blur-2xl" />
             <Card className="overflow-hidden">
               <CardHeader className="border-b bg-muted/40">
-                <CardTitle className="text-base">
-                  Capability Profile
-                </CardTitle>
+                <CardTitle className="text-base">Capability Profile</CardTitle>
                 <CardDescription>
                   Illustrative — your real profile is built from assessments.
                 </CardDescription>
@@ -250,7 +249,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── How it works ───────────────────────────────────── */}
+      {/* How it works */}
       <section id="how-it-works" className="border-b">
         <div className="container py-20">
           <div className="mx-auto max-w-2xl text-center">
@@ -281,7 +280,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── Task categories ────────────────────────────────── */}
+      {/* Task categories */}
       <section className="border-b bg-muted/30">
         <div className="container py-20">
           <div className="mx-auto max-w-2xl text-center">
@@ -307,7 +306,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── Trust / quality ────────────────────────────────── */}
+      {/* Trust / quality */}
       <section className="border-b">
         <div className="container py-20">
           <div className="grid gap-10 md:grid-cols-2 md:items-start">
@@ -357,7 +356,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── CTA ────────────────────────────────────────────── */}
+      {/* CTA */}
       <section className="border-b bg-primary text-primary-foreground">
         <div className="container flex flex-col items-start justify-between gap-6 py-16 md:flex-row md:items-center">
           <div>
@@ -365,8 +364,8 @@ export default function LandingPage() {
               Ready to train the next generation of AI?
             </h2>
             <p className="mt-2 max-w-xl opacity-90">
-              Create your profile, take your first assessment, and unlock
-              paid tasks this week.
+              Create your profile, take your first assessment, and unlock paid
+              tasks this week.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -388,10 +387,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── Footer ─────────────────────────────────────────── */}
+      {/* Footer */}
       <footer className="bg-background">
         <div className="container flex flex-col items-center justify-between gap-4 py-10 text-sm text-muted-foreground md:flex-row">
-          <p>© {new Date().getFullYear()} EvalForge. Train Humans. Improve AI.</p>
+          <p>© {new Date().getFullYear()} Evalia. Train Humans. Improve AI.</p>
           <div className="flex flex-wrap items-center gap-6">
             <Link href="/about" className="hover:text-foreground">
               About

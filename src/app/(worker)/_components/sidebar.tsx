@@ -12,7 +12,6 @@ import {
   Bell,
   User,
   Settings,
-  Sparkles,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -37,10 +36,12 @@ export function Sidebar({ user }: { user: AuthUser }) {
     <aside className="hidden w-64 shrink-0 border-r bg-background md:block">
       <div className="flex h-16 items-center gap-2 border-b px-6">
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Sparkles className="h-4 w-4" />
-          </div>
-          <span>EvalForge</span>
+          <img
+            src="/logo.png"
+            alt="Evalia"
+            className="h-10 w-10 rounded-md object-contain"
+          />
+          <span>Evalia</span>
         </Link>
       </div>
 
@@ -69,9 +70,7 @@ export function Sidebar({ user }: { user: AuthUser }) {
       </nav>
 
       <div className="mt-4 border-t p-4">
-        <p className="text-xs text-muted-foreground">
-          Signed in as
-        </p>
+        <p className="text-xs text-muted-foreground">Signed in as</p>
         <p className="truncate text-sm font-medium">{user.name ?? user.email}</p>
         <p className="text-xs text-muted-foreground">{user.role}</p>
       </div>

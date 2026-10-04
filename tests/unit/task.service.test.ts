@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { prisma } from "@/lib/prisma";
 import {
   listAvailableTasksForUser,
+  listMyAssignmentSummaries,
   meetsRequirement,
 } from "@/server/services/task.service";
 
@@ -229,7 +230,12 @@ describe("listAvailableTasksForUser", () => {
     } as never);
     vi.mocked(prisma.userCapability.findMany).mockResolvedValueOnce([] as never);
     vi.mocked(prisma.task.findMany).mockResolvedValueOnce([
-      { ...baseTask, maxAssignments: 3, _count: { assignments: 3 }, requirements: [] },
+      {
+        ...baseTask,
+        maxAssignments: 3,
+        _count: { assignments: 3 },
+        requirements: [],
+      },
     ] as never);
 
     const result = await listAvailableTasksForUser("u1");
@@ -245,14 +251,23 @@ describe("listAvailableTasksForUser", () => {
     } as never);
     vi.mocked(prisma.userCapability.findMany).mockResolvedValueOnce([
       { capabilityId: "c1", level: "ADVANCED", score: 90 },
-      // c2 is missing — user only holds one of the two required
     ] as never);
     vi.mocked(prisma.task.findMany).mockResolvedValueOnce([
       {
         ...baseTask,
         requirements: [
-          { capabilityId: "c1", minLevel: "INTERMEDIATE", minScore: null, capability: { name: "A" } },
-          { capabilityId: "c2", minLevel: "BEGINNER", minScore: null, capability: { name: "B" } },
+          {
+            capabilityId: "c1",
+            minLevel: "INTERMEDIATE",
+            minScore: null,
+            capability: { name: "A" },
+          },
+          {
+            capabilityId: "c2",
+            minLevel: "BEGINNER",
+            minScore: null,
+            capability: { name: "B" },
+          },
         ],
       },
     ] as never);
@@ -261,5 +276,69 @@ describe("listAvailableTasksForUser", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.tasks).toHaveLength(0);
+  });
+});
+
+describe("listMyAssignmentSummaries", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns an empty list when the user has no assignments", async () => {
+    vi.mocked(prisma.taskAssignment.findMany).mockResolvedValueOnce([] as never);
+
+    const result = await listMyAssignmentSummaries("u1");
+
+    expect(result).toEqual([]);
+    expect(prisma.taskSubmission.findMany).not.toHaveBeenCalled();
+  });
+
+  it("attaches the latest quality score per task", async () => {
+    vi.mocked(prisma.taskAssignment.findMany).mockResolvedValueOnce([
+      {
+        id: "as1",
+        status: "SUBMITTED",
+        assignedAt: new Date("2026-10-03T10:00:00Z"),
+        submittedAt: new Date("2026-10-03T10:15:00Z"),
+        task: {
+          id: "t1",
+          title: "Classify sentiment",
+          difficulty: "INTERMEDIATE",
+          project: { name: "Sentiment" },
+        },
+      },
+      {
+        id: "as2",
+        status: "ACCEPTED",
+        assignedAt: new Date("2026-10-04T10:00:00Z"),
+        submittedAt: null,
+        task: {
+          id: "t2",
+          title: "Rate clarity",
+          difficulty: "BEGINNER",
+          project: { name: "Writing" },
+        },
+      },
+    ] as never);
+
+    vi.mocked(prisma.taskSubmission.findMany).mockResolvedValueOnce([
+      {
+        taskId: "t1",
+        qualityScore: 88,
+        submittedAt: new Date("2026-10-03T10:15:00Z"),
+      },
+    ] as never);
+
+    const result = await listMyAssignmentSummaries("u1");
+
+    expect(result).toHaveLength(2);
+
+    const a1 = result.find((r) => r.id === "as1")!;
+    expect(a1.taskTitle).toBe("Classify sentiment");
+    expect(a1.qualityScore).toBe(88);
+
+    const a2 = result.find((r) => r.id === "as2")!;
+    expect(a2.status).toBe("ACCEPTED");
+    expect(a2.qualityScore).toBeNull();
   });
 });

@@ -7,17 +7,13 @@ import {
   BookOpenCheck,
   CheckCircle2,
   Clock,
-  History,
+  RotateCcw,
   Target,
-  Trophy,
-  XCircle,
 } from "lucide-react";
 
 import { requireUser } from "@/server/auth/guards";
-import {
-  getAssessmentBySlug,
-  getAssessmentAttemptsForUser,
-} from "@/server/services/assessment.service";
+import { getAssessmentBySlug } from "@/server/services/assessment.service";
+import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -39,26 +35,6 @@ const DIFFICULTY_CLASS: Record<string, string> = {
   EXPERT: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  IN_PROGRESS: "In progress",
-  SUBMITTED: "Submitted",
-  GRADING: "Grading",
-  GRADED: "Graded",
-  EXPIRED: "Expired",
-  ABANDONED: "Abandoned",
-};
-
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 export default async function AssessmentDetailPage({
   params,
 }: {
@@ -70,38 +46,58 @@ export default async function AssessmentDetailPage({
   const assessment = await getAssessmentBySlug(slug, user.id);
   if (!assessment) notFound();
 
-  const attempts = await getAssessmentAttemptsForUser(slug, user.id);
+  // Past attempts, newest first (to show history)
+  const attempts = await prisma.assessmentAttempt.findMany({
+    where: {
+      userId: user.id,
+      assessmentId: assessment.id,
+      status: { not: "ABANDONED" },
+    },
+    orderBy: { startedAt: "desc" },
+    take: 5,
+    select: {
+      id: true,
+      status: true,
+      score: true,
+      startedAt: true,
+      submittedAt: true,
+    },
+  });
 
-  const inProgress = attempts.find((a) => a.status === "IN_PROGRESS");
   const exhausted = assessment.attemptsRemaining === 0;
-  const canStart = !exhausted || !!inProgress;
+  const hasInProgress = attempts.some((a) => a.status === "IN_PROGRESS");
 
-  const buttonLabel = inProgress
+  const primaryHref = `/assessments/${assessment.slug}/take`;
+  const primaryLabel = hasInProgress
     ? "Resume attempt"
     : exhausted
-      ? "No attempts remaining"
-      : assessment.attemptsUsed === 0
-        ? "Start assessment"
-        : "Take another attempt";
+      ? "No attempts left"
+      : "Start assessment";
 
   return (
     <div className="space-y-6">
-      <Link
-        href="/assessments"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        All assessments
-      </Link>
+      {/* Back link */}
+      <div>
+        <Button variant="ghost" size="sm" className="-ml-2" asChild>
+          <Link href="/assessments">
+            <ArrowLeft className="mr-1.5 h-4 w-4" />
+            All assessments
+          </Link>
+        </Button>
+      </div>
 
+      {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {assessment.name}
-            </h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {assessment.name}
+          </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              {assessment.category}
+            </span>
             <span
-              className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
                 DIFFICULTY_CLASS[assessment.difficulty] ??
                 "bg-muted text-muted-foreground"
               }`}
@@ -109,28 +105,15 @@ export default async function AssessmentDetailPage({
               {DIFFICULTY_LABEL[assessment.difficulty] ?? assessment.difficulty}
             </span>
           </div>
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            {assessment.category}
-          </p>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            {assessment.description ?? "No description provided."}
-          </p>
+          {assessment.description ? (
+            <p className="max-w-2xl text-sm text-muted-foreground">
+              {assessment.description}
+            </p>
+          ) : null}
         </div>
-
-        {canStart ? (
-          <Button size="lg" asChild>
-            <Link href={`/assessments/${assessment.slug}/take`}>
-              {buttonLabel}
-              <ArrowRight className="ml-1.5 h-4 w-4" />
-            </Link>
-          </Button>
-        ) : (
-          <Button size="lg" disabled>
-            {buttonLabel}
-          </Button>
-        )}
       </div>
 
+      {/* Stats row */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -143,7 +126,6 @@ export default async function AssessmentDetailPage({
             <div className="text-2xl font-bold">{assessment.questionCount}</div>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -153,14 +135,10 @@ export default async function AssessmentDetailPage({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {assessment.timeLimitMinutes}
-              <span className="ml-1 text-sm font-normal text-muted-foreground">
-                min
-              </span>
+              {assessment.timeLimitMinutes} min
             </div>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -172,73 +150,68 @@ export default async function AssessmentDetailPage({
             <div className="text-2xl font-bold">{assessment.passingScore}</div>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Attempts left
             </CardTitle>
-            <Trophy className="h-4 w-4 text-muted-foreground" />
+            <RotateCcw className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {assessment.attemptsRemaining}
-              <span className="ml-1 text-sm font-normal text-muted-foreground">
-                / {assessment.maxAttempts}
-              </span>
             </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              of {assessment.maxAttempts} total
+            </p>
           </CardContent>
         </Card>
       </div>
 
+      {/* Call to action */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            What you&apos;ll be assessed on
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li className="flex items-start gap-2">
-              <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground" />
-              {assessment.questionCount} question
-              {assessment.questionCount === 1 ? "" : "s"} covering{" "}
-              {assessment.category.toLowerCase()}.
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground" />
-              You must complete it within {assessment.timeLimitMinutes}{" "}
-              minutes.
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground" />
-              Score {assessment.passingScore} or higher to earn a capability.
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground" />
-              You have {assessment.maxAttempts} attempt
-              {assessment.maxAttempts === 1 ? "" : "s"} in total for this
-              assessment.
-            </li>
-          </ul>
+        <CardContent className="flex flex-wrap items-center justify-between gap-4 py-6">
+          <div>
+            <p className="text-sm font-medium">
+              {exhausted
+                ? "You've used all your attempts for this assessment."
+                : hasInProgress
+                  ? "You have an attempt in progress."
+                  : "Ready to take this assessment?"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {exhausted
+                ? "Contact support if you believe this is a mistake."
+                : "Make sure you have enough time before you start — the timer begins when you click."}
+            </p>
+          </div>
+          <Button disabled={exhausted} asChild={!exhausted}>
+            {exhausted ? (
+              <span>{primaryLabel}</span>
+            ) : (
+              <Link href={primaryHref}>
+                {primaryLabel}
+                <ArrowRight className="ml-1.5 h-4 w-4" />
+              </Link>
+            )}
+          </Button>
         </CardContent>
       </Card>
 
+      {/* Attempt history */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <History className="h-4 w-4" />
-            Your attempts
-          </CardTitle>
+          <CardTitle className="text-base">Your attempts</CardTitle>
         </CardHeader>
         <CardContent>
           {attempts.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No attempts yet. Click <strong>Start assessment</strong> to begin.
+              You haven&apos;t attempted this assessment yet.
             </p>
           ) : (
             <ul className="divide-y">
               {attempts.map((a) => {
+                const started = new Date(a.startedAt).toLocaleString();
                 const passed =
                   a.status === "GRADED" &&
                   a.score !== null &&
@@ -247,26 +220,29 @@ export default async function AssessmentDetailPage({
                 return (
                   <li
                     key={a.id}
-                    className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"
+                    className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"
                   >
                     <div className="flex items-center gap-2">
-                      {passed ? (
+                      {a.status === "GRADED" && passed ? (
                         <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                      ) : a.status === "GRADED" ? (
-                        <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                      ) : (
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                      )}
-                      <span className="font-medium">
-                        {STATUS_LABEL[a.status] ?? a.status}
-                      </span>
+                      ) : null}
+                      <span className="font-medium">{a.status}</span>
+                      <span className="text-muted-foreground">· {started}</span>
                     </div>
-
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span>
-                        Score {a.score !== null ? Math.round(a.score) : "—"}
-                      </span>
-                      <span>{formatDate(a.startedAt)}</span>
+                    <div className="text-muted-foreground">
+                      {a.score !== null ? (
+                        <span
+                          className={
+                            passed
+                              ? "text-emerald-600 dark:text-emerald-400 font-medium"
+                              : ""
+                          }
+                        >
+                          Score {Math.round(a.score)}
+                        </span>
+                      ) : (
+                        <span>—</span>
+                      )}
                     </div>
                   </li>
                 );

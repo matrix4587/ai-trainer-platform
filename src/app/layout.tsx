@@ -1,21 +1,26 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { DM_Sans } from "next/font/google";
+
 import "./globals.css";
 
-const inter = Inter({
+const dmSans = DM_Sans({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-sans",
   display: "swap",
 });
 
 export const metadata: Metadata = {
   title: {
-    default: "EvalForge — Train Humans. Improve AI.",
-    template: "%s | EvalForge",
+    default: "Evalia",
+    template: "%s · Evalia",
   },
   description:
-    "Join a global network of AI trainers and evaluators helping build safer, smarter and more reliable artificial intelligence.",
-  metadataBase: new URL(process.env.APP_URL ?? "http://localhost:3000"),
+    "Evalia — Train Humans. Improve AI. Earn capabilities, complete tasks, and get paid for high-quality human feedback.",
+  applicationName: "Evalia",
+  icons: {
+    icon: "/icon.png",
+  },
 };
 
 export default function RootLayout({
@@ -24,10 +29,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="min-h-screen bg-background font-sans antialiased">
-        {children}
-      </body>
+    <html lang="en" suppressHydrationWarning className={dmSans.variable}>
+      <body className="font-sans antialiased">{children}</body>
     </html>
   );
 }

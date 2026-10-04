@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/prisma";
-import type { AssessmentDifficulty, CapabilityLevel, TaskStatus } from "@prisma/client";
+import type {
+  AssessmentDifficulty,
+  CapabilityLevel,
+  TaskStatus,
+} from "@prisma/client";
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -27,6 +31,18 @@ export type AvailableTask = {
   }[];
 };
 
+export type MyAssignmentSummary = {
+  id: string;
+  status: string;
+  taskId: string;
+  taskTitle: string;
+  taskDifficulty: AssessmentDifficulty;
+  projectName: string;
+  assignedAt: string;
+  submittedAt: string | null;
+  qualityScore: number | null;
+};
+
 export type ListAvailableTasksResult =
   | { ok: true; tasks: AvailableTask[] }
   | { ok: false; reason: "USER_NOT_FOUND" };
@@ -51,18 +67,6 @@ function meetsLevel(
 
 // ─────────────────────────────────────────────────────────────
 // listAvailableTasksForUser
-//
-// A task is available if:
-//   - task.status === "AVAILABLE"
-//   - task is attached to a Project whose status === "ACTIVE"
-//   - the user has every TaskCapabilityRequirement satisfied
-//     (level >= minLevel AND score >= minScore when set)
-//   - the number of active assignments is under maxAssignments
-//
-// NOTE: this is a correctness-first implementation. If the number
-// of AVAILABLE tasks grows large, the per-task requirement check
-// can be pushed into a single SQL query using jsonb or a join.
-// For now we do it in JS, which is easy to reason about and test.
 // ─────────────────────────────────────────────────────────────
 
 export async function listAvailableTasksForUser(
@@ -75,7 +79,6 @@ export async function listAvailableTasksForUser(
 
   if (!user) return { ok: false, reason: "USER_NOT_FOUND" };
 
-  // 1. Every capability this user holds, keyed by capabilityId
   const userCaps = await prisma.userCapability.findMany({
     where: { userId },
     select: { capabilityId: true, level: true, score: true },
@@ -85,7 +88,6 @@ export async function listAvailableTasksForUser(
     userCaps.map((c) => [c.capabilityId, { level: c.level, score: c.score }]),
   );
 
-  // 2. Candidate tasks — PUBLISHED and AVAILABLE on an ACTIVE project
   const candidates = await prisma.task.findMany({
     where: {
       status: "AVAILABLE",
@@ -128,10 +130,8 @@ export async function listAvailableTasksForUser(
   const out: AvailableTask[] = [];
 
   for (const t of candidates) {
-    // Skip if the task is already fully assigned
     if (t._count.assignments >= t.maxAssignments) continue;
 
-    // Every requirement must be satisfied
     const qualifies = t.requirements.every((req) => {
       const held = userCapMap.get(req.capabilityId);
       if (!held) return false;
@@ -164,7 +164,74 @@ export async function listAvailableTasksForUser(
 }
 
 // ─────────────────────────────────────────────────────────────
-// Exported helper for tests — pure logic, no DB
+// listMyAssignmentSummaries
+// Returns a compact view of the user's assignments for the tasks
+// page sidebar ("My tasks" section).
+// ─────────────────────────────────────────────────────────────
+
+export async function listMyAssignmentSummaries(
+  userId: string,
+): Promise<MyAssignmentSummary[]> {
+  const rows = await prisma.taskAssignment.findMany({
+    where: { userId },
+    orderBy: { assignedAt: "desc" },
+    select: {
+      id: true,
+      status: true,
+      assignedAt: true,
+      submittedAt: true,
+      task: {
+        select: {
+          id: true,
+          title: true,
+          difficulty: true,
+          project: { select: { name: true } },
+        },
+      },
+    },
+  });
+
+  // Fetch latest quality scores for each task in one query
+  const taskIds = Array.from(new Set(rows.map((r) => r.task.id)));
+
+  const submissions =
+    taskIds.length > 0
+      ? await prisma.taskSubmission.findMany({
+          where: {
+            userId,
+            taskId: { in: taskIds },
+          },
+          orderBy: { submittedAt: "desc" },
+          select: {
+            taskId: true,
+            qualityScore: true,
+            submittedAt: true,
+          },
+        })
+      : [];
+
+  const scoreByTask = new Map<string, number | null>();
+  for (const s of submissions) {
+    if (!scoreByTask.has(s.taskId)) {
+      scoreByTask.set(s.taskId, s.qualityScore);
+    }
+  }
+
+  return rows.map((r) => ({
+    id: r.id,
+    status: r.status,
+    taskId: r.task.id,
+    taskTitle: r.task.title,
+    taskDifficulty: r.task.difficulty,
+    projectName: r.task.project.name,
+    assignedAt: r.assignedAt.toISOString(),
+    submittedAt: r.submittedAt ? r.submittedAt.toISOString() : null,
+    qualityScore: scoreByTask.get(r.task.id) ?? null,
+  }));
+}
+
+// ─────────────────────────────────────────────────────────────
+// Exported helper (used in tests)
 // ─────────────────────────────────────────────────────────────
 
 export function meetsRequirement(

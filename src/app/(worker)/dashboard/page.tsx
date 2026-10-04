@@ -12,6 +12,7 @@ import {
 
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/server/auth/guards";
+import { listAvailableTasksForUser } from "@/server/services/task.service";
 import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +24,6 @@ export const metadata: Metadata = {
 export default async function DashboardPage() {
   const user = await requireUser();
 
-  // Gate: users who haven't finished onboarding get sent back to the wizard
   const profile = await prisma.profile.findUnique({
     where: { userId: user.id },
     select: { onboardingCompletedAt: true },
@@ -33,8 +33,7 @@ export default async function DashboardPage() {
     redirect("/onboarding/review");
   }
 
-  // Pull live data from the DB
-  const [wallet, capabilities, pendingTasks] = await Promise.all([
+  const [wallet, capabilities, availableTasksResult] = await Promise.all([
     prisma.wallet.findUnique({ where: { userId: user.id } }),
     prisma.userCapability.findMany({
       where: { userId: user.id },
@@ -42,13 +41,12 @@ export default async function DashboardPage() {
       orderBy: { grantedAt: "desc" },
       take: 5,
     }),
-    prisma.taskAssignment.count({
-      where: {
-        userId: user.id,
-        status: { in: ["OFFERED", "ACCEPTED", "STARTED"] },
-      },
-    }),
+    listAvailableTasksForUser(user.id),
   ]);
+
+  const availableTasks = availableTasksResult.ok
+    ? availableTasksResult.tasks
+    : [];
 
   const stats = [
     {
@@ -59,10 +57,10 @@ export default async function DashboardPage() {
     },
     {
       label: "Available tasks",
-      value: String(pendingTasks),
+      value: String(availableTasks.length),
       icon: ClipboardList,
       hint:
-        pendingTasks === 0
+        availableTasks.length === 0
           ? "Complete assessments to unlock"
           : "Ready to work",
     },
@@ -85,7 +83,6 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
         <p className="text-sm text-muted-foreground">
@@ -93,7 +90,6 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => {
           const Icon = s.icon;
@@ -114,9 +110,7 @@ export default async function DashboardPage() {
         })}
       </div>
 
-      {/* Capabilities + Recommended */}
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Capabilities */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Your capabilities</CardTitle>
@@ -125,9 +119,7 @@ export default async function DashboardPage() {
             {capabilities.length === 0 ? (
               <div className="rounded-md border border-dashed p-6 text-center">
                 <BookOpenCheck className="mx-auto h-8 w-8 text-muted-foreground" />
-                <p className="mt-3 text-sm font-medium">
-                  No capabilities yet
-                </p>
+                <p className="mt-3 text-sm font-medium">No capabilities yet</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Complete your first assessment to unlock paid tasks.
                 </p>
@@ -140,7 +132,7 @@ export default async function DashboardPage() {
               </div>
             ) : (
               <ul className="space-y-2">
-                {capabilities.map((uc: any) => (
+                {capabilities.map((uc) => (
                   <li
                     key={uc.id}
                     className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
@@ -156,27 +148,65 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Recommended tasks */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Recommended tasks</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border border-dashed p-6 text-center">
-              <ClipboardList className="mx-auto h-8 w-8 text-muted-foreground" />
-              <p className="mt-3 text-sm font-medium">
-                No tasks available yet
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Tasks unlock automatically once you qualify through assessments.
-              </p>
-              <Button size="sm" variant="outline" className="mt-4" asChild>
-                <Link href="/assessments">
-                  Take an assessment
-                  <ArrowRight className="ml-1 h-3.5 w-3.5" />
-                </Link>
-              </Button>
-            </div>
+            {availableTasks.length === 0 ? (
+              <div className="rounded-md border border-dashed p-6 text-center">
+                <p className="mt-3 text-sm font-medium">
+                  No tasks available yet
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Tasks unlock automatically once you qualify through
+                  assessments.
+                </p>
+                <Button size="sm" className="mt-4" asChild>
+                  <Link href="/assessments">
+                    Take an assessment
+                    <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              </div>
+            ) : (
+              <>
+                <ul className="space-y-2">
+                  {availableTasks.slice(0, 3).map((t) => (
+                    <li
+                      key={t.id}
+                      className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
+                    >
+                      <div className="min-w-0 space-y-0.5">
+                        <p className="truncate font-medium">{t.title}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {t.project.name}
+                        </p>
+                      </div>
+                      <Button size="sm" asChild>
+                        <Link href={`/tasks/${t.id}`}>
+                          Start
+                          <ArrowRight className="ml-1 h-3 w-3" />
+                        </Link>
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+                {availableTasks.length > 3 ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="mt-3 w-full"
+                    asChild
+                  >
+                    <Link href="/tasks">
+                      View all {availableTasks.length} tasks
+                      <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                ) : null}
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
