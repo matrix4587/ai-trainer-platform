@@ -1,8 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import type {
-  AssessmentDifficulty,
-  QuestionType,
-} from "@prisma/client";
+import type { AssessmentDifficulty, QuestionType } from "@prisma/client";
 
 // ─────────────────────────────────────────────────────────────
 // Public (safe) shapes returned to the client.
@@ -55,6 +52,14 @@ export type PublicAssessmentDetail = PublicAssessmentSummary & {
   attemptsRemaining: number;
 };
 
+export type AssessmentListItem = PublicAssessmentSummary & {
+  attemptsUsed: number;
+  attemptsRemaining: number;
+  lastAttemptStatus: string | null;
+  lastAttemptScore: number | null;
+  lastAttemptAt: string | null;
+};
+
 // ─────────────────────────────────────────────────────────────
 // listPublishedAssessments
 // ─────────────────────────────────────────────────────────────
@@ -94,9 +99,98 @@ export async function listPublishedAssessments(): Promise<
 }
 
 // ─────────────────────────────────────────────────────────────
+// listAssessmentsForUser
+// ─────────────────────────────────────────────────────────────
+
+export async function listAssessmentsForUser(
+  userId: string,
+): Promise<AssessmentListItem[]> {
+  const assessments = await prisma.assessment.findMany({
+    where: { status: "PUBLISHED" },
+    orderBy: [{ category: "asc" }, { name: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      description: true,
+      category: true,
+      difficulty: true,
+      timeLimitMinutes: true,
+      passingScore: true,
+      maxAttempts: true,
+      _count: { select: { questions: true } },
+    },
+  });
+
+  if (assessments.length === 0) return [];
+
+  const assessmentIds = assessments.map((a) => a.id);
+
+  const attempts = await prisma.assessmentAttempt.findMany({
+    where: {
+      userId,
+      assessmentId: { in: assessmentIds },
+      status: { not: "ABANDONED" },
+    },
+    orderBy: { startedAt: "desc" },
+    select: {
+      id: true,
+      assessmentId: true,
+      status: true,
+      score: true,
+      startedAt: true,
+    },
+  });
+
+  const byAssessment = new Map<
+    string,
+    {
+      count: number;
+      lastStatus: string | null;
+      lastScore: number | null;
+      lastAt: string | null;
+    }
+  >();
+
+  for (const att of attempts) {
+    const bucket = byAssessment.get(att.assessmentId);
+    if (!bucket) {
+      byAssessment.set(att.assessmentId, {
+        count: 1,
+        lastStatus: att.status,
+        lastScore: att.score,
+        lastAt: att.startedAt.toISOString(),
+      });
+    } else {
+      bucket.count += 1;
+    }
+  }
+
+  return assessments.map((a) => {
+    const bucket = byAssessment.get(a.id);
+    const attemptsUsed = bucket?.count ?? 0;
+    return {
+      id: a.id,
+      name: a.name,
+      slug: a.slug,
+      description: a.description,
+      category: a.category,
+      difficulty: a.difficulty,
+      timeLimitMinutes: a.timeLimitMinutes,
+      passingScore: a.passingScore,
+      maxAttempts: a.maxAttempts,
+      questionCount: a._count.questions,
+      attemptsUsed,
+      attemptsRemaining: Math.max(0, a.maxAttempts - attemptsUsed),
+      lastAttemptStatus: bucket?.lastStatus ?? null,
+      lastAttemptScore: bucket?.lastScore ?? null,
+      lastAttemptAt: bucket?.lastAt ?? null,
+    };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
 // getAssessmentBySlug
-// Returns null if not found, not published, or draft.
-// Strips correctAnswer / rubric / option.isCorrect.
 // ─────────────────────────────────────────────────────────────
 
 export async function getAssessmentBySlug(
@@ -118,7 +212,6 @@ export async function getAssessmentBySlug(
                   id: true,
                   label: true,
                   order: true,
-                  // isCorrect is intentionally NOT selected
                 },
               },
             },
@@ -145,8 +238,6 @@ export async function getAssessmentBySlug(
 
   if (!assessment) return null;
 
-  // Count this user's existing attempts (all statuses count toward the cap
-  // except ABANDONED, which we don't penalize).
   const attemptsUsed = await prisma.assessmentAttempt.count({
     where: {
       assessmentId: assessment.id,
@@ -185,7 +276,6 @@ export async function getAssessmentBySlug(
     questions: s.questions.map(mapQuestion),
   }));
 
-  // Questions without a section become a synthetic "General" section
   if (assessment.questions.length > 0) {
     sections.push({
       id: "general",
