@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import {
   listPublishedAssessments,
   listAssessmentsForUser,
+  getAssessmentAttemptsForUser,
 } from "@/server/services/assessment.service";
 
 describe("listPublishedAssessments", () => {
@@ -152,15 +153,81 @@ describe("listAssessmentsForUser", () => {
       },
     ] as never);
 
-    vi.mocked(prisma.assessmentAttempt.findMany).mockResolvedValueOnce([] as never);
+    vi.mocked(prisma.assessmentAttempt.findMany).mockResolvedValueOnce(
+      [] as never,
+    );
 
     await listAssessmentsForUser("u1");
 
-    const callArg = vi.mocked(prisma.assessmentAttempt.findMany).mock.calls[0][0];
+    const callArg = vi.mocked(prisma.assessmentAttempt.findMany).mock
+      .calls[0][0];
     expect(callArg?.where).toEqual({
       userId: "u1",
       assessmentId: { in: ["a1"] },
       status: { not: "ABANDONED" },
     });
+  });
+});
+
+describe("getAssessmentAttemptsForUser", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns an empty array when the assessment does not exist", async () => {
+    vi.mocked(prisma.assessment.findFirst).mockResolvedValueOnce(null);
+
+    const result = await getAssessmentAttemptsForUser("missing", "u1");
+
+    expect(result).toEqual([]);
+    expect(prisma.assessmentAttempt.findMany).not.toHaveBeenCalled();
+  });
+
+  it("returns attempts newest first with ISO dates", async () => {
+    vi.mocked(prisma.assessment.findFirst).mockResolvedValueOnce({
+      id: "a1",
+    } as never);
+
+    vi.mocked(prisma.assessmentAttempt.findMany).mockResolvedValueOnce([
+      {
+        id: "att2",
+        status: "GRADED",
+        score: 92,
+        startedAt: new Date("2026-10-03T10:00:00Z"),
+        submittedAt: new Date("2026-10-03T10:15:00Z"),
+        gradedAt: new Date("2026-10-03T10:15:01Z"),
+      },
+      {
+        id: "att1",
+        status: "GRADED",
+        score: 60,
+        startedAt: new Date("2026-10-01T10:00:00Z"),
+        submittedAt: new Date("2026-10-01T10:15:00Z"),
+        gradedAt: new Date("2026-10-01T10:15:01Z"),
+      },
+    ] as never);
+
+    const result = await getAssessmentAttemptsForUser(
+      "general-reasoning",
+      "u1",
+    );
+
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({
+      id: "att2",
+      status: "GRADED",
+      score: 92,
+      startedAt: "2026-10-03T10:00:00.000Z",
+      submittedAt: "2026-10-03T10:15:00.000Z",
+      gradedAt: "2026-10-03T10:15:01.000Z",
+    });
+
+    const callArg = vi.mocked(prisma.assessmentAttempt.findMany).mock
+      .calls[0][0];
+    expect(callArg?.where).toEqual({
+      assessmentId: "a1",
+      userId: "u1",
+    });
+    expect(callArg?.orderBy).toEqual({ startedAt: "desc" });
   });
 });

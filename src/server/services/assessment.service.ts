@@ -60,6 +60,15 @@ export type AssessmentListItem = PublicAssessmentSummary & {
   lastAttemptAt: string | null;
 };
 
+export type AttemptHistoryItem = {
+  id: string;
+  status: string;
+  score: number | null;
+  startedAt: string;
+  submittedAt: string | null;
+  gradedAt: string | null;
+};
+
 // ─────────────────────────────────────────────────────────────
 // listPublishedAssessments
 // ─────────────────────────────────────────────────────────────
@@ -304,4 +313,45 @@ export async function getAssessmentBySlug(
     attemptsUsed,
     attemptsRemaining: Math.max(0, assessment.maxAttempts - attemptsUsed),
   };
+}
+
+// ─────────────────────────────────────────────────────────────
+// getAssessmentAttemptsForUser
+// ─────────────────────────────────────────────────────────────
+
+export async function getAssessmentAttemptsForUser(
+  slug: string,
+  userId: string,
+): Promise<AttemptHistoryItem[]> {
+  const assessment = await prisma.assessment.findFirst({
+    where: { slug, status: "PUBLISHED" },
+    select: { id: true },
+  });
+
+  if (!assessment) return [];
+
+  const attempts = await prisma.assessmentAttempt.findMany({
+    where: {
+      assessmentId: assessment.id,
+      userId,
+    },
+    orderBy: { startedAt: "desc" },
+    select: {
+      id: true,
+      status: true,
+      score: true,
+      startedAt: true,
+      submittedAt: true,
+      gradedAt: true,
+    },
+  });
+
+  return attempts.map((a) => ({
+    id: a.id,
+    status: a.status,
+    score: a.score,
+    startedAt: a.startedAt.toISOString(),
+    submittedAt: a.submittedAt ? a.submittedAt.toISOString() : null,
+    gradedAt: a.gradedAt ? a.gradedAt.toISOString() : null,
+  }));
 }
