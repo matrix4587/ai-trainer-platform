@@ -8,6 +8,15 @@ import { vi, beforeEach } from "vitest";
 // ─────────────────────────────────────────────────────────────
 
 vi.mock("@/lib/prisma", () => {
+  const user = {
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    count: vi.fn(),
+  };
+
   const assessment = {
     findMany: vi.fn(),
     findFirst: vi.fn(),
@@ -55,8 +64,22 @@ vi.mock("@/lib/prisma", () => {
     findMany: vi.fn(),
   };
 
+  const task = {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    count: vi.fn(),
+  };
+
+  const project = {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+  };
+
   return {
     prisma: {
+      user,
       assessment,
       assessmentAttempt,
       assessmentAnswer,
@@ -65,6 +88,8 @@ vi.mock("@/lib/prisma", () => {
       userCapability,
       capabilityHistory,
       capability,
+      task,
+      project,
     },
   };
 });
